@@ -1,6 +1,7 @@
 plugins {
 	id 'fabric-loom' version '1.7-SNAPSHOT'
 	id 'maven-publish'
+	id "com.github.johnrengelman.shadow" version "8.1.1"
 }
 
 version = project.mod_version
@@ -50,10 +51,10 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-	include(implementation "com.squareup.okhttp3:okhttp:4.12.0")
-	include(implementation "se.llbit:chunky-core:2.4.4-20221023.020557-1")
-	include(implementation "net.time4tea:oidnjni:0.1.04")
-	include(implementation "de.lemaik:chunky-denoiser:0.5.0")
+	shadow(implementation "com.squareup.okhttp3:okhttp:4.12.0")
+	shadow(implementation "se.llbit:chunky-core:2.5.0-SNAPSHOT")
+	shadow(implementation 'net.time4tea:oidnjni:0.1.13')
+	shadow(implementation "de.lemaik:chunky-denoiser:0.5.0")
 
 	provided files("../lib/Dynmap-3.7-beta-6-fabric-1.21.jar")
 }
@@ -79,6 +80,23 @@ jar {
 	from("LICENSE") {
 		rename { "${it}_${project.base.archivesName.get()}"}
 	}
+}
+
+shadowJar {
+	configurations = [project.configurations.shadow]
+	exclude "META-INF"
+	
+	dependencies {
+		// Explicitly exclude fastutil (otherwise included from chunky-core)
+		// because it's already included in the Minecraft server jar.
+		exclude(dependency("it.unimi.dsi:fastutil:"))
+	}
+}
+
+remapJar {
+	dependsOn shadowJar
+	mustRunAfter shadowJar
+	inputFile = file(shadowJar.archivePath)
 }
 
 // configure the maven publication

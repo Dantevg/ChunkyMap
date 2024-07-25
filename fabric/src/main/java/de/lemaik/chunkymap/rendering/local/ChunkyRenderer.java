@@ -1,7 +1,5 @@
 package de.lemaik.chunkymap.rendering.local;
 
-import de.lemaik.chunky.denoiser.DenoisedPathTracingRenderer;
-import de.lemaik.chunky.denoiser.DenoiserSettings;
 import de.lemaik.chunkymap.ChunkyMapMod;
 import de.lemaik.chunkymap.rendering.FileBufferRenderContext;
 import de.lemaik.chunkymap.rendering.RenderException;
@@ -10,23 +8,26 @@ import de.lemaik.chunkymap.rendering.SilentTaskTracker;
 import net.time4tea.oidn.OidnImages;
 import se.llbit.chunky.PersistentSettings;
 import se.llbit.chunky.main.Chunky;
+import se.llbit.chunky.renderer.PathTracingRenderer;
 import se.llbit.chunky.renderer.RenderManager;
 import se.llbit.chunky.renderer.SnapshotControl;
 import se.llbit.chunky.renderer.scene.PathTracer;
 import se.llbit.chunky.renderer.scene.Scene;
 import se.llbit.chunky.renderer.scene.SynchronousSceneManager;
 import se.llbit.chunky.resources.BitmapImage;
-import se.llbit.chunky.resources.TexturePackLoader;
-import se.llbit.util.TaskTracker;
+import se.llbit.chunky.resources.ResourcePackLoader;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.io.File;
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 /**
  * A renderer that uses Chunky to render scenes locally.
@@ -43,9 +44,10 @@ public class ChunkyRenderer implements Renderer {
 	private final int cpuLoad;
 	
 	static {
-		Chunky.addRenderer(new DenoisedPathTracingRenderer(
-				new DenoiserSettings(), new Oidn4jDenoiser(),
-				"DenoisedPathTracer", "DenoisedPathTracer", "DenoisedPathTracer", new PathTracer()));
+		// Use non-denoising renderer because I cannot get the locally-built updated
+		// denoiser to be detected by maven...
+		Chunky.addRenderer(new PathTracingRenderer(
+				"PathTracer", "PathTracer", "PathTracer", new PathTracer()));
 	}
 	
 	public ChunkyRenderer(int targetSpp, boolean enableDenoiser, int albedoTargetSpp,
@@ -93,7 +95,12 @@ public class ChunkyRenderer implements Renderer {
 		
 		String texturepackPaths = this.getTexturepackPaths(texturepacks);
 		if (!texturepackPaths.equals(previousTexturepacks)) {
-			TexturePackLoader.loadTexturePacks(texturepackPaths, false);
+			List<File> texturepackFiles = Arrays.stream(texturepackPaths.trim().split(File.pathSeparator))
+					.map(String::trim)
+					.map(pathString -> pathString.isEmpty() ? null : new File(pathString))
+					.filter(Objects::nonNull)
+					.collect(Collectors.toList());
+			ResourcePackLoader.loadResourcePacks(texturepackFiles);
 			previousTexturepacks = texturepackPaths;
 		}
 		
@@ -158,11 +165,13 @@ public class ChunkyRenderer implements Renderer {
       */
 			
 			BufferedImage renderedImage = OidnImages.Companion
-					.newBufferedImage(scene.width, scene.height);
+					.newBufferedImage(scene.canvasConfig.getWidth(), scene.canvasConfig.getHeight());
 			for (int i = 0; i < samples.length; i++) {
 				renderedImage.getRaster().getDataBuffer().setElemDouble(i, samples[i]);
 			}
-			BufferedImage imageInIntPixelLayout = new BufferedImage(scene.width, scene.height,
+			BufferedImage imageInIntPixelLayout = new BufferedImage(
+					scene.canvasConfig.getWidth(),
+					scene.canvasConfig.getHeight(),
 					BufferedImage.TYPE_INT_ARGB);
 			Graphics2D graphics = imageInIntPixelLayout.createGraphics();
 			graphics.drawImage(renderedImage, 0, 0, null);
@@ -171,10 +180,10 @@ public class ChunkyRenderer implements Renderer {
 			return imageInIntPixelLayout;
 		} else {
 			Class<Scene> sceneClass = Scene.class;
-			Method computeAlpha = sceneClass
-					.getDeclaredMethod("computeAlpha", new Class[]{TaskTracker.class});
-			computeAlpha.setAccessible(true);
-			computeAlpha.invoke(scene, SilentTaskTracker.INSTANCE);
+//      Method computeAlpha = sceneClass
+//          .getDeclaredMethod("computeAlpha", new Class[]{TaskTracker.class});
+//      computeAlpha.setAccessible(true);
+//      computeAlpha.invoke(scene, SilentTaskTracker.INSTANCE);
 			
 			Field finalized = sceneClass.getDeclaredField("finalized");
 			finalized.setAccessible(true);

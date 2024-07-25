@@ -5,16 +5,12 @@ import de.lemaik.chunkymap.rendering.FileBufferRenderContext;
 import de.lemaik.chunkymap.rendering.Renderer;
 import de.lemaik.chunkymap.rendering.SilentTaskTracker;
 import de.lemaik.chunkymap.rendering.rs.RemoteRenderer;
-
-import java.awt.image.DataBufferInt;
-import java.io.IOException;
-import java.lang.reflect.Field;
-import java.util.*;
-import java.util.stream.Collectors;
-
-import org.dynmap.*;
 import org.dynmap.Client.Tile;
+import org.dynmap.DynmapWorld;
+import org.dynmap.MapManager;
+import org.dynmap.MapTile;
 import org.dynmap.MapType.ImageVariant;
+import org.dynmap.MapTypeState;
 import org.dynmap.hdmap.HDMapTile;
 import org.dynmap.hdmap.HDPerspective;
 import org.dynmap.hdmap.IsoHDPerspective;
@@ -29,6 +25,14 @@ import se.llbit.chunky.world.World;
 import se.llbit.chunky.world.World.LoggedWarnings;
 import se.llbit.util.ProgressListener;
 import se.llbit.util.TaskTracker;
+
+import java.awt.image.DataBufferInt;
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 public class ChunkyMapTile extends HDMapTile {
 	public ChunkyMapTile(DynmapWorld world, HDPerspective perspective, int tx, int ty, int boostzoom, int tilescale) {

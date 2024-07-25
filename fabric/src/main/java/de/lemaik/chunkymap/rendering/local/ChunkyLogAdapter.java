@@ -5,7 +5,7 @@ import se.llbit.log.Level;
 import se.llbit.log.Receiver;
 
 /**
- * Adapter for Chunky's logger that redirects log messages to the mod's logger and suppresses
+ * Adapter for Chunky's logger that redirects log messages to the plugin's logger and suppresses
  * known false-positive warnings.
  */
 public class ChunkyLogAdapter extends Receiver {
