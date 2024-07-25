@@ -28,7 +28,7 @@ public class ChunkyMapMod implements ModInitializer {
 		Log.setReceiver(new ChunkyLogAdapter(LOGGER), se.llbit.log.Level.ERROR,
 				se.llbit.log.Level.WARNING, se.llbit.log.Level.INFO);
 		
-		try (InputStream mapIcon = getResource("rs-map-icon.png")) {
+		try (InputStream mapIcon = getResource("assets/chunkymap/rs-map-icon.png")) {
 			Path iconPath = Paths
 					.get(getDynmapDataFolder().getAbsolutePath(), "web", "images", "block_chunky.png");
 			if (!iconPath.toFile().exists()) {
