@@ -3,3 +3,4 @@ version: ${project.version}
 main: de.lemaik.chunkymap.ChunkyMapPlugin
 loadbefore: [dynmap]
 softdepend: [dynmap]
+api-version: 1.13
