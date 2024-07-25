@@ -1,0 +1,24 @@
+plugins {
+	id "java"
+	id 'maven-publish'
+}
+
+allprojects {
+	version = project.version
+	group = project.group
+}
+
+subprojects {
+	apply plugin: "java"
+
+	java {
+		sourceCompatibility = JavaVersion.VERSION_21
+		targetCompatibility = JavaVersion.VERSION_21
+	}
+
+	jar {
+		from("LICENSE") {
+			rename { "${it}_${project.base.archivesName.get()}"}
+		}
+	}
+}
