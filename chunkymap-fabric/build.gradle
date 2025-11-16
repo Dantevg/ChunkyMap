@@ -1,5 +1,5 @@
 plugins {
-	id 'fabric-loom' version '1.7-SNAPSHOT'
+	id 'fabric-loom' version '1.11-SNAPSHOT'
 	id "com.github.johnrengelman.shadow" version "8.1.1"
 }
 
@@ -27,7 +27,7 @@ dependencies {
 	// Fabric API. This is technically optional, but you probably want it anyway.
 	modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_version}"
 
-	implementation "se.llbit:chunky-core:2.5.0-SNAPSHOT"
+    implementation files("../lib/chunky-core-2.5.0-SNAPSHOT.421.g027c767.jar")
 	
 	shadow(implementation(project ":chunkymap-common"))
 }

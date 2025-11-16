@@ -1,5 +1,7 @@
 package de.lemaik.chunkymap.rendering.local;
 
+import de.lemaik.chunky.denoiser.DenoisedPathTracingRenderer;
+import de.lemaik.chunky.denoiser.DenoiserSettings;
 import de.lemaik.chunkymap.Platform;
 import de.lemaik.chunkymap.rendering.FileBufferRenderContext;
 import de.lemaik.chunkymap.rendering.RenderException;
@@ -11,17 +13,21 @@ import se.llbit.chunky.main.Chunky;
 import se.llbit.chunky.renderer.PathTracingRenderer;
 import se.llbit.chunky.renderer.RenderManager;
 import se.llbit.chunky.renderer.SnapshotControl;
+import se.llbit.chunky.renderer.scene.AlphaBuffer;
 import se.llbit.chunky.renderer.scene.PathTracer;
 import se.llbit.chunky.renderer.scene.Scene;
 import se.llbit.chunky.renderer.scene.SynchronousSceneManager;
 import se.llbit.chunky.resources.BitmapImage;
 import se.llbit.chunky.resources.ResourcePackLoader;
+import se.llbit.util.TaskTracker;
 
 import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.awt.image.DataBufferInt;
 import java.io.File;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
@@ -34,7 +40,7 @@ import java.util.stream.Collectors;
  */
 public class ChunkyRenderer implements Renderer {
 	
-	private static String previousTexturepacks;
+	private static List<File> previousTexturepacks;
 	private File defaultTexturepack;
 	private final int targetSpp;
 	private final boolean enableDenoiser;
@@ -44,14 +50,12 @@ public class ChunkyRenderer implements Renderer {
 	private final int cpuLoad;
 	
 	static {
-		// Use non-denoising renderer because I cannot get the locally-built updated
-		// denoiser to be detected by maven...
-		Chunky.addRenderer(new PathTracingRenderer(
-				"PathTracer", "PathTracer", "PathTracer", new PathTracer()));
+		Chunky.addRenderer(new DenoisedPathTracingRenderer(
+				new Oidn4jDenoiser(), "Oidn4jDenoisedPathTracer", "DenoisedPathTracer", "DenoisedPathTracer", new PathTracer()));
 	}
 	
 	public ChunkyRenderer(int targetSpp, boolean enableDenoiser, int albedoTargetSpp,
-	                      int normalTargetSpp, int threads, int cpuLoad) {
+			int normalTargetSpp, int threads, int cpuLoad) {
 		this.targetSpp = targetSpp;
 		this.enableDenoiser = enableDenoiser;
 		this.albedoTargetSpp = albedoTargetSpp;
@@ -70,38 +74,18 @@ public class ChunkyRenderer implements Renderer {
 		defaultTexturepack = texturepack;
 	}
 	
-	private String getTexturepackPaths(File[] texturepacks) {
-		StringBuilder texturepackPaths = new StringBuilder();
-		for (File texturepack : texturepacks) {
-			if (texturepackPaths.length() > 0) {
-				texturepackPaths.append(File.pathSeparator);
-			}
-			texturepackPaths.append(texturepack.getAbsolutePath());
-		}
-		
-		if (defaultTexturepack != null) {
-			if (texturepackPaths.length() > 0) {
-				texturepackPaths.append(File.pathSeparator);
-			}
-			texturepackPaths.append(defaultTexturepack.getAbsolutePath());
-		}
-		return texturepackPaths.toString();
-	}
-	
 	@Override
 	public CompletableFuture<BufferedImage> render(FileBufferRenderContext context, File[] texturepacks,
-	                                               Consumer<Scene> initializeScene) {
+			Consumer<Scene> initializeScene) {
 		CompletableFuture<BufferedImage> result = new CompletableFuture<>();
 		
-		String texturepackPaths = this.getTexturepackPaths(texturepacks);
-		if (!texturepackPaths.equals(previousTexturepacks)) {
-			List<File> texturepackFiles = Arrays.stream(texturepackPaths.trim().split(File.pathSeparator))
-					.map(String::trim)
-					.map(pathString -> pathString.isEmpty() ? null : new File(pathString))
-					.filter(Objects::nonNull)
-					.collect(Collectors.toList());
-			ResourcePackLoader.loadResourcePacks(texturepackFiles);
-			previousTexturepacks = texturepackPaths;
+		List<File> resourcepacks = new ArrayList<>(texturepacks.length);
+		if (defaultTexturepack != null) {
+			resourcepacks.add(defaultTexturepack);
+		}
+		if (!resourcepacks.equals(previousTexturepacks)) {
+			ResourcePackLoader.loadResourcePacks(resourcepacks);
+			previousTexturepacks = resourcepacks;
 		}
 		
 		context.setRenderThreadCount(threads);
@@ -109,7 +93,16 @@ public class ChunkyRenderer implements Renderer {
 		renderManager.setCPULoad(cpuLoad);
 		
 		SynchronousSceneManager sceneManager = new SynchronousSceneManager(context, renderManager);
-		initializeScene.accept(sceneManager.getScene());
+		sceneManager.withEditSceneProtected(initializeScene);
+		sceneManager.applySceneChanges();
+		
+		DenoiserSettings settings = new DenoiserSettings();
+		settings.renderAlbedo.set(albedoTargetSpp > 0);
+		settings.albedoSpp.set(albedoTargetSpp);
+		settings.renderNormal.set(normalTargetSpp > 0);
+		settings.normalSpp.set(normalTargetSpp);
+		settings.saveToScene(sceneManager.getScene());
+		
 		renderManager.setSceneProvider(sceneManager);
 		renderManager.setSnapshotControl(new SnapshotControl() {
 			@Override
@@ -124,9 +117,13 @@ public class ChunkyRenderer implements Renderer {
 		});
 		
 		try {
+			if (enableDenoiser) {
+				sceneManager.getScene().setRenderer("Oidn4jDenoisedPathTracer");
+			}
+			sceneManager.getScene().haltRender();
 			sceneManager.getScene().setTargetSpp(targetSpp);
-			sceneManager.getScene().startRender();
 			renderManager.start();
+			sceneManager.getScene().startRender();
 			renderManager.join();
 			result.complete(getImage(sceneManager.getScene()));
 		} catch (InterruptedException | ReflectiveOperationException e) {
@@ -140,68 +137,25 @@ public class ChunkyRenderer implements Renderer {
 	
 	private BufferedImage getImage(Scene scene)
 			throws ReflectiveOperationException {
-		if (enableDenoiser) {
-			double[] samples = scene.getSampleBuffer();
-			
-			// TODO re-enable post-processing when denoising
-			// TODO use multiple threads for post-processing
-      /*
-      for (int y = 0; y < scene.height; y++) {
-        for (int x = 0; x < scene.width; x++) {
-          double[] result = new double[3];
-          if (!scene.getPostProcessingFilter().getId().equals("NONE")) {
-            scene.getPostProcessingFilter().processFrame(scene.width, scene.height, result);
-            scene.postProcessPixel(x, y, result);
-          } else {
-            result[0] = samples[(y * scene.width + x) * 3 + 0];
-            result[1] = samples[(y * scene.width + x) * 3 + 1];
-            result[2] = samples[(y * scene.width + x) * 3 + 2];
-          }
-          buffer.put((y * scene.width + x) * 3, (float) Math.min(1.0, result[0]));
-          buffer.put((y * scene.width + x) * 3 + 1, (float) Math.min(1.0, result[1]));
-          buffer.put((y * scene.width + x) * 3 + 2, (float) Math.min(1.0, result[2]));
-        }
-      }
-      */
-			
-			BufferedImage renderedImage = OidnImages.Companion
-					.newBufferedImage(scene.canvasConfig.getWidth(), scene.canvasConfig.getHeight());
-			for (int i = 0; i < samples.length; i++) {
-				renderedImage.getRaster().getDataBuffer().setElemDouble(i, samples[i]);
-			}
-			BufferedImage imageInIntPixelLayout = new BufferedImage(
-					scene.canvasConfig.getWidth(),
-					scene.canvasConfig.getHeight(),
-					BufferedImage.TYPE_INT_ARGB);
-			Graphics2D graphics = imageInIntPixelLayout.createGraphics();
-			graphics.drawImage(renderedImage, 0, 0, null);
-			graphics.dispose();
-			
-			return imageInIntPixelLayout;
-		} else {
-			Class<Scene> sceneClass = Scene.class;
-//      Method computeAlpha = sceneClass
-//          .getDeclaredMethod("computeAlpha", new Class[]{TaskTracker.class});
-//      computeAlpha.setAccessible(true);
-//      computeAlpha.invoke(scene, SilentTaskTracker.INSTANCE);
-			
-			Field finalized = sceneClass.getDeclaredField("finalized");
-			finalized.setAccessible(true);
-			if (!finalized.getBoolean(scene)) {
-				scene.postProcessFrame(SilentTaskTracker.INSTANCE);
-			}
-			
-			Field backBuffer = sceneClass.getDeclaredField("backBuffer");
-			backBuffer.setAccessible(true);
-			BitmapImage bitmap = (BitmapImage) backBuffer.get(scene);
-			
-			BufferedImage renderedImage = new BufferedImage(bitmap.width, bitmap.height,
-					BufferedImage.TYPE_INT_ARGB);
+		Method computeAlpha = AlphaBuffer.class.getDeclaredMethod(
+				"computeAlpha", new Class[]{Scene.class, AlphaBuffer.Type.class, TaskTracker.class});
+		computeAlpha.setAccessible(true);
+		computeAlpha.invoke(scene.getAlphaBuffer(), new Object[]{scene, AlphaBuffer.Type.UINT8, TaskTracker.NONE});
+		
+		Field finalized = Scene.class.getDeclaredField("finalized");
+		finalized.setAccessible(true);
+		if (!finalized.getBoolean(scene)) {
+			scene.postProcessFrame(SilentTaskTracker.INSTANCE);
+		}
+		
+		scene.swapBuffers();
+		BufferedImage renderedImage = new BufferedImage(scene.canvasConfig.getWidth(), scene.canvasConfig.getHeight(), BufferedImage.TYPE_INT_ARGB);
+		scene.withBufferedImage(bitmap -> {
 			DataBufferInt dataBuffer = (DataBufferInt) renderedImage.getRaster().getDataBuffer();
 			int[] data = dataBuffer.getData();
 			System.arraycopy(bitmap.data, 0, data, 0, bitmap.width * bitmap.height);
-			
-			return renderedImage;
-		}
+		});
+		
+		return renderedImage;
 	}
 }

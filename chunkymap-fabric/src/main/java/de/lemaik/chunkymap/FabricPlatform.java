@@ -17,6 +17,6 @@ public class FabricPlatform extends Platform {
 	
 	@Override
 	public String getMinecraftVersion() {
-		return MinecraftVersion.CURRENT.getName();
+		return MinecraftVersion.CURRENT.name();
 	}
 }

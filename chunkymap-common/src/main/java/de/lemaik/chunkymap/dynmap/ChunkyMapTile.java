@@ -99,7 +99,7 @@ public class ChunkyMapTile extends HDMapTile {
 								.collect(Collectors.toSet());
 						Log.info("loading " + chunks.size() + " chunks");
 						scene.setOctreeImplementation("PACKED");
-						scene.loadChunks(new TaskTracker((task, done, start, target) -> {
+						scene.loadChunks(new TaskTracker((task, done, start, target, elapsedTime) -> {
 							Log.info(task + " (" + done + "/" + target + ")");
 						}), chunkyWorld, chunks);
 						Log.info("loaded " + chunks.size() + " chunks");
