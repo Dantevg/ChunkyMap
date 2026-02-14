@@ -1,4 +1,4 @@
-package de.lemaik.chunkymap.rendering.local;
+package de.lemaik.chunkymap;
 
 import java.util.logging.Logger;
 import se.llbit.log.Level;
