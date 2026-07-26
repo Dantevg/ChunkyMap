@@ -1,7 +1,7 @@
 plugins {
-    id 'net.fabricmc.fabric-loom-remap' version "${loom_version}"
+    id 'net.fabricmc.fabric-loom' version "${loom_version}"
     id 'maven-publish'
-    id "com.gradleup.shadow" version "9.3.1"
+    id "com.gradleup.shadow" version "9.6.1"
 }
 
 base {
@@ -25,11 +25,10 @@ loom {
 dependencies {
     // To change the versions see the gradle.properties file
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
-    mappings loom.officialMojangMappings()
-    modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
+    implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
     // Fabric API. This is technically optional, but you probably want it anyway.
-    modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
     implementation "se.llbit:chunky-core:${project.chunky_version}"
 
@@ -44,28 +43,14 @@ processResources {
 
 shadowJar {
     configurations = [project.configurations.shadow]
-    exclude "META-INF"
+    archiveClassifier = "" // Overwrite-non-shadowed jar
+    exclude "META-INF/**"
 
     dependencies {
         // Explicitly exclude fastutil (otherwise included from chunky-core)
         // because it's already included in the Minecraft server jar.
         exclude(dependency("it.unimi.dsi:fastutil:"))
     }
-}
-
-remapJar {
-    dependsOn shadowJar
-    mustRunAfter shadowJar
-    inputFile = file(tasks.shadowJar.archiveFile)
-}
-
-tasks.withType(JavaCompile).configureEach {
-    it.options.release = 21
-}
-
-java {
-    sourceCompatibility = JavaVersion.VERSION_21
-    targetCompatibility = JavaVersion.VERSION_21
 }
 
 // configure the maven publication

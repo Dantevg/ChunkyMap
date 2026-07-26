@@ -20,6 +20,7 @@ import org.dynmap.utils.MapChunkCache;
 import se.llbit.chunky.entity.PlayerEntity;
 import se.llbit.chunky.renderer.scene.Scene;
 import se.llbit.chunky.world.ChunkPosition;
+import se.llbit.chunky.world.Dimension;
 import se.llbit.chunky.world.World;
 import se.llbit.chunky.world.World.LoggedWarnings;
 import se.llbit.log.Log;
@@ -181,15 +182,15 @@ public class ChunkyMapTile extends HDMapTile {
     }
   }
 
-  private static int getChunkyDimension(String environment) {
+  private static Dimension.Identifier getChunkyDimension(String environment) {
     switch (environment) {
       case "nether":
-        return World.NETHER_DIMENSION;
+        return Dimension.Identifier.THE_NETHER;
       case "the_end":
-        return World.END_DIMENSION;
+        return Dimension.Identifier.THE_END;
       case "normal":
       default:
-        return World.OVERWORLD_DIMENSION;
+        return Dimension.Identifier.OVERWORLD;
     }
   }
 
@@ -210,7 +211,7 @@ public class ChunkyMapTile extends HDMapTile {
     ArrayList<ChunkPosition> chunks = new ArrayList<>((radius + 1) * (radius + 1));
     for (int x = -radius; x <= radius; x++) {
       for (int z = -radius; z <= radius; z++) {
-        chunks.add(ChunkPosition.get(centerX + x, centerZ + z));
+        chunks.add(new ChunkPosition(centerX + x, centerZ + z));
       }
     }
     return chunks;

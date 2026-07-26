@@ -1,5 +1,5 @@
 plugins {
-    id "com.gradleup.shadow" version "9.3.1"
+    id "com.gradleup.shadow" version "9.6.1"
 }
 
 repositories {
@@ -31,7 +31,8 @@ dependencies {
 
 shadowJar {
     configurations = [project.configurations.shadow]
-    exclude "META-INF"
+    archiveClassifier = "" // Overwrite-non-shadowed jar
+    exclude "META-INF/**"
 
     dependencies {
         // Explicitly exclude fastutil (otherwise included from chunky-core)
