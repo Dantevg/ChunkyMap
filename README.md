@@ -6,11 +6,11 @@ ChunkyMap is a map renderer for [Dynmap][dynmap] that uses [Chunky][chunky] to r
 
 ## Compatibility matrix
 
-| ChunkyMap  | Minecraft       | Dynmap  | Chunky | Branch         | Spigot | Fabric |
-| ---------- | --------------- | ------- | ------ | -------------- | ------ | ------ |
-| 2.7.0      | 1.21.4 or older | 3.8     | 2.5.0  | [master][]     | ✅     | ✅     |
-| 2.6.0-pre4 | 1.19 or older   | 3.2     | 2.4.4  | [chunky-2.4][] | ✅     |        |
-| 2.5.2      | 1.16 or older   | 2.3-3.0 | 2.3.0  | [chunky-2.3][] | ✅     |        |
+| ChunkyMap  | Minecraft     | Dynmap  | Chunky | Branch         | Spigot | Fabric |
+| ---------- | ------------- | ------- | ------ | -------------- | ------ | ------ |
+| 2.7.0      | 26.2 or older | 3.8     | 2.5.0  | [master][]     | ✅     | ✅     |
+| 2.6.0-pre4 | 1.19 or older | 3.2     | 2.4.4  | [chunky-2.4][] | ✅     |        |
+| 2.5.2      | 1.16 or older | 2.3-3.0 | 2.3.0  | [chunky-2.3][] | ✅     |        |
 
 [master]: https://github.com/leMaik/ChunkyMap/tree/master
 [chunky-2.4]: https://github.com/leMaik/ChunkyMap/tree/chunky-2.4
